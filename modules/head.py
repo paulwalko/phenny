@@ -77,121 +77,121 @@ r_title = re.compile(r'(?ims)<title[^>]*>(.*?)</title\s*>')
 r_entity = re.compile(r'&[A-Za-z0-9#]+;')
 
 
-def noteuri(phenny, input):
-    uri = input.group(1)
-    if not hasattr(phenny.bot, 'last_seen_uri'):
-        phenny.bot.last_seen_uri = {}
-    phenny.bot.last_seen_uri[input.sender] = uri
-noteuri.rule = r'.*(http[s]?://[^<> "\x01]+)[,.]?'
-noteuri.priority = 'low'
-
-
-
-def snarfuri(phenny, input):
-    uri = input.group(2)
-    title = gettitle(phenny, input, uri)
-
-    if title:
-        phenny.msg(input.sender, title)
-snarfuri.rule = r'([^\.].*)?(http[s]?://[^<> "\x01]+)[,.]?'
-snarfuri.priority = 'low'
-snarfuri.thread = True
-
-
-def gettitle(phenny, input, uri):
-    if not ':' in uri:
-        uri = 'http://' + uri
-    uri = uri.replace('#!', '?_escaped_fragment_=')
-
-    title = None
-    localhost = [
-        'http://localhost/', 'http://localhost:80/',
-        'http://localhost:8080/', 'http://127.0.0.1/',
-        'http://127.0.0.1:80/', 'http://127.0.0.1:8080/',
-        'https://localhost/', 'https://localhost:80/',
-        'https://localhost:8080/', 'https://127.0.0.1/',
-        'https://127.0.0.1:80/', 'https://127.0.0.1:8080/',
-    ]
-    for s in localhost:
-        if uri.startswith(s):
-            return phenny.reply('Sorry, access forbidden.')
-
-    try:
-        redirects = 0
-        while True:
-            info = web.head(uri)
-
-            if not isinstance(info, list):
-                status = '200'
-            else:
-                status = str(info[1])
-                info = info[0]
-            if status.startswith('3'):
-                uri = urllib.parse.urljoin(uri, info['Location'])
-            else:
-                break
-
-            redirects += 1
-            if redirects >= 25:
-                return None
-
-        try:
-            mtype = info['content-type']
-        except:
-            return None
-
-        if not (('/html' in mtype) or ('/xhtml' in mtype)):
-            return None
-
-        bytes = web.get(uri)
-        #bytes = u.read(262144)
-        #u.close()
-
-    except:
-        return
-
-    m = r_title.search(bytes)
-    if m:
-        title = m.group(1)
-        title = title.strip()
-        title = title.replace('\t', ' ')
-        title = title.replace('\r', ' ')
-        title = title.replace('\n', ' ')
-        while '  ' in title:
-            title = title.replace('  ', ' ')
-        if len(title) > 200:
-            title = title[:200] + '[...]'
-
-        def e(m):
-            entity = m.group(0)
-            if entity.startswith('&#x'):
-                cp = int(entity[3:-1], 16)
-                return chr(cp)
-            elif entity.startswith('&#'):
-                cp = int(entity[2:-1])
-                return chr(cp)
-            else:
-                char = name2codepoint[entity[1:-1]]
-                return chr(char)
-        title = r_entity.sub(e, title)
-
-        if title:
-            title = title.replace('\n', '')
-            title = title.replace('\r', '')
-            title = "[ {0} ]".format(title)
-
-            if "posted" in phenny.variables:
-                from modules.posted import check_posted
-                
-                posted = check_posted(phenny, input, uri)
-
-                if posted:
-                    title = "{0} (posted: {1})".format(title, posted)
-
-
-        else:
-            title = None
-    return title
+#def noteuri(phenny, input):
+#    uri = input.group(1)
+#    if not hasattr(phenny.bot, 'last_seen_uri'):
+#        phenny.bot.last_seen_uri = {}
+#    phenny.bot.last_seen_uri[input.sender] = uri
+#noteuri.rule = r'.*(http[s]?://[^<> "\x01]+)[,.]?'
+#noteuri.priority = 'low'
+#
+#
+#
+#def snarfuri(phenny, input):
+#    uri = input.group(2)
+#    title = gettitle(phenny, input, uri)
+#
+#    if title:
+#        phenny.msg(input.sender, title)
+#snarfuri.rule = r'([^\.].*)?(http[s]?://[^<> "\x01]+)[,.]?'
+#snarfuri.priority = 'low'
+#snarfuri.thread = True
+#
+#
+#def gettitle(phenny, input, uri):
+#    if not ':' in uri:
+#        uri = 'http://' + uri
+#    uri = uri.replace('#!', '?_escaped_fragment_=')
+#
+#    title = None
+#    localhost = [
+#        'http://localhost/', 'http://localhost:80/',
+#        'http://localhost:8080/', 'http://127.0.0.1/',
+#        'http://127.0.0.1:80/', 'http://127.0.0.1:8080/',
+#        'https://localhost/', 'https://localhost:80/',
+#        'https://localhost:8080/', 'https://127.0.0.1/',
+#        'https://127.0.0.1:80/', 'https://127.0.0.1:8080/',
+#    ]
+#    for s in localhost:
+#        if uri.startswith(s):
+#            return phenny.reply('Sorry, access forbidden.')
+#
+#    try:
+#        redirects = 0
+#        while True:
+#            info = web.head(uri)
+#
+#            if not isinstance(info, list):
+#                status = '200'
+#            else:
+#                status = str(info[1])
+#                info = info[0]
+#            if status.startswith('3'):
+#                uri = urllib.parse.urljoin(uri, info['Location'])
+#            else:
+#                break
+#
+#            redirects += 1
+#            if redirects >= 25:
+#                return None
+#
+#        try:
+#            mtype = info['content-type']
+#        except:
+#            return None
+#
+#        if not (('/html' in mtype) or ('/xhtml' in mtype)):
+#            return None
+#
+#        bytes = web.get(uri)
+#        #bytes = u.read(262144)
+#        #u.close()
+#
+#    except:
+#        return
+#
+#    m = r_title.search(bytes)
+#    if m:
+#        title = m.group(1)
+#        title = title.strip()
+#        title = title.replace('\t', ' ')
+#        title = title.replace('\r', ' ')
+#        title = title.replace('\n', ' ')
+#        while '  ' in title:
+#            title = title.replace('  ', ' ')
+#        if len(title) > 200:
+#            title = title[:200] + '[...]'
+#
+#        def e(m):
+#            entity = m.group(0)
+#            if entity.startswith('&#x'):
+#                cp = int(entity[3:-1], 16)
+#                return chr(cp)
+#            elif entity.startswith('&#'):
+#                cp = int(entity[2:-1])
+#                return chr(cp)
+#            else:
+#                char = name2codepoint[entity[1:-1]]
+#                return chr(char)
+#        title = r_entity.sub(e, title)
+#
+#        if title:
+#            title = title.replace('\n', '')
+#            title = title.replace('\r', '')
+#            title = "[ {0} ]".format(title)
+#
+#            if "posted" in phenny.variables:
+#                from modules.posted import check_posted
+#                
+#                posted = check_posted(phenny, input, uri)
+#
+#                if posted:
+#                    title = "{0} (posted: {1})".format(title, posted)
+#
+#
+#        else:
+#            title = None
+#    return title
 
 
 if __name__ == '__main__':
