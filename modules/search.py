@@ -13,14 +13,17 @@ import web
 
 r_google = re.compile(r'href="\/url\?q=(http.*?)&')
 
-def google_search(query): 
+def generic_google(query):
     query = web.quote(query)
     uri = 'https://google.co.uk/search?q=%s' % query
-    bytes = web.get(uri)
+    return web.get(uri)
+
+def google_search(query): 
+    bytes = generic_google(query)
     m = r_google.search(bytes)
     if m:
-        result = web.decode(m.group(1))
-        return web.unquote(result)
+        uri = web.decode(m.group(1))
+        return web.unquote(uri)
 
 r_google_count = re.compile(r'id="resultStats">About (.*?) ')
 
@@ -121,7 +124,7 @@ def bing(phenny, input):
 bing.commands = ['bing']
 bing.example = '.bing swhack'
 
-r_duck = re.compile(r'nofollow" class="[^"]+" href=".+?(http.*?)">')
+r_duck = re.compile(r'web-result.*?nofollow.*?href=".+?(http.*?)"', re.DOTALL)
 
 def duck_search(query): 
     query = query.replace('!', '')
@@ -130,8 +133,8 @@ def duck_search(query):
     bytes = web.get(uri)
     m = r_duck.search(bytes)
     if m:
-        result = web.decode(m.group(1))
-        return web.unquote(result)
+        uri = web.decode(m.group(1))
+        return web.unquote(uri)
 
 def duck_api(query):
     uri = 'https://api.duckduckgo.com/?q=%s&format=json&no_redirect=1' % query
@@ -183,17 +186,6 @@ def search(phenny, input):
 
     phenny.reply(result)
 search.commands = ['search']
-
-def suggest(phenny, input): 
-    if not input.group(2):
-        return phenny.reply("No query term.")
-    query = input.group(2)
-    uri = 'http://websitedev.de/temp-bin/suggest.pl?q='
-    answer = web.get(uri + web.quote(query).replace('+', '%2B'))
-    if answer: 
-        phenny.say(answer)
-    else: phenny.reply('Sorry, no result.')
-suggest.commands = ['suggest']
 
 if __name__ == '__main__': 
     print(__doc__.strip())
