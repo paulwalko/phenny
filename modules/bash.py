@@ -5,7 +5,7 @@ author: paulwalko <paul@walko.org>
 """
 
 from threading import Thread
-import os, sqlite3, time
+import os, sqlite3, time, web
 
 queue = []
 
@@ -123,22 +123,15 @@ def bash(phenny, input):
         final_lines.append(line[0])
     final_lines = ''.join(final_lines)
 
-    """Write quotes to file"""
-    files = os.listdir(phenny.bash_quotes_path)
-    files_num = [0]
-    new_file = '1.txt'
-    for f in files:
-        f = f.strip('.txt')
-        if f.isdigit():
-            files_num.append(int(f))
 
-    new_file = str(max(files_num) + 1) + '.txt'
-    new_path = os.path.join(phenny.bash_quotes_path, new_file)
-    with open(new_path, 'w') as f:
-        f.write(final_lines)
-        f.close()
+    quote_json = {
+            'body': final_lines,
+            'tags': '',
+            'key': "SUPERSECRETAPIKEY"
+            }
+    web.post('https://bash.vtluug.org/quotes', quote_json)
 
-    phenny.say('%s: Check bash.walko.org to see your quote' % (input.nick))
+    phenny.say('Check https://bash.vtluug.org/quotes to see your quote!')
 
 def logger(phenny, input):
     """logs EVERYTHING"""
