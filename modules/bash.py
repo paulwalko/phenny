@@ -126,10 +126,11 @@ def bash(phenny, input):
 
     quote_json = {
             'body': final_lines,
-            'tags': '',
+            'tags': ','.join(['bone', nick1, nick2]),
             'key': "SUPERSECRETAPIKEY"
             }
-    web.post('https://bash.vtluug.org/quotes', quote_json)
+   
+    web.post('https://bash.vtluug.org/quotes', {}, {}, True, json=quote_json)
 
     phenny.say('Check https://bash.vtluug.org/quotes to see your quote!')
 
