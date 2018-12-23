@@ -10,6 +10,8 @@ import os, sqlite3, time, web
 queue = []
 
 def setup(self):
+    """Creates sqlite database to store quotes
+    """
     fn = self.nick + '-' + self.config.host + '.bash.db'
     bash_quotes = 'bash_logs'
     self.bash_quotes_path = os.path.join(os.path.expanduser('~/.phenny'), bash_quotes)
@@ -37,7 +39,7 @@ def setup(self):
     );''')
     c.close()
 
-    """Start thread to check for new messages"""
+    # Start thread to check for new messages
     Thread(target = insert_into_db_caller, args=(self,)).start()
 
 def bash(phenny, input):
@@ -60,7 +62,7 @@ def bash(phenny, input):
     nick2 = input_args[2]
     nick2_end_str = input_args[3]
 
-    """Check Input Type"""
+    # Check Input Type
     if not nick1_start_str.isdigit() or not nick2_end_str.isdigit():
         phenny.say("Error: 2nd & 4th argument must be integers")
         phenny.say(usage)
@@ -69,13 +71,13 @@ def bash(phenny, input):
     nick1_start = int(nick1_start_str)
     nick2_end = int(nick2_end_str)
 
-    """Connect to db"""
+    # Connect to db
     fn = phenny.nick + '-' + phenny.config.host + '.bash.db'
     bash_db = os.path.join(os.path.expanduser('~/.phenny'), fn)
     bash_conn = sqlite3.connect(bash_db)
     c = bash_conn.cursor()
 
-    """Check input for validity"""
+    # Check input for validity
     c.execute('''SELECT lines FROM stats WHERE (channel=? OR channel='NULL') AND nick=?''', (channel, nick1))
     rows = c.fetchall()
     nick1_total = 0
@@ -89,14 +91,16 @@ def bash(phenny, input):
         nick2_total = nick2_total + row[0]
 
     if nick1_total < nick1_start:
-        phenny.say("Error: %s has not done %s actions (EVERYTHING included EXCEPT {bot} replies)" % (nick1, nick1_start, self.phenny.nick))
+        phenny.say("Error: {} has not done {} actions (EVERYTHING included EXCEPT {} replies)" \
+                .format(nick1, nick1_start, phenny.nick))
         return
     
     if nick2_total < nick2_end:
-        phenny.say("Error: %s has not done %s actions (EVERYTHING included EXCEPT {bot} replies)" % (nick2, nick2_end, self.phenny.nick))
+        phenny.say("Error: {} has not done {} actions (EVERYTHING included EXCEPT {} replies)" \
+                .format(nick2, nick2_end, phenny.nick))
         return
 
-    """Fetch quote ids"""
+    # Fetch quote ids
     c.execute('''SELECT id, channel, nick FROM quotes WHERE (channel=? OR channel='ALL') AND nick=?''', (channel, nick1))
     rows = c.fetchall()
     nick1_id = -1
@@ -116,7 +120,7 @@ def bash(phenny, input):
         phenny.say(usage)
         return
 
-    """Fetch quotes within range of ids"""
+    # Fetch quotes within range of ids
     c.execute('''SELECT quote FROM quotes WHERE (channel=? OR channel='ALL') AND id >= ? AND id <= ?''', (channel, nick1_id, nick2_id))
     final_lines = []
     for line in c.fetchall():
@@ -135,7 +139,8 @@ def bash(phenny, input):
     phenny.say('Check https://bash.vtluug.org/quotes to see your quote!')
 
 def logger(phenny, input):
-    """logs EVERYTHING"""
+    """logs everyting to specific format, except we only keep last 100 lines
+    """
 
     allowed_actions = ['PRIVMSG', 'JOIN', 'QUIT', 'PART', 'NICK', 'KICK', 'MODE']
     
@@ -159,7 +164,8 @@ def logger(phenny, input):
         nick = input.nick
         if input.group(1):
             message = " ({message})".format(message=input.group(1))
-        quote = "<-- {nick} has left {channel}{message}".format(nick=nick, channel=channel, message=message)
+        quote = "<-- {nick} has left {channel}{message}" \
+                .format(nick=nick, channel=channel, message=message)
     elif input.event == 'QUIT':
         channel = 'ALL'
         nick = input.nick
@@ -169,11 +175,13 @@ def logger(phenny, input):
     elif input.event == 'KICK':
         channel = input.sender
         nick = input.nick
-        quote = "<-- {nick} has kicked {nick_kick} [{kick_msg}] from {channel}".format(nick=nick, nick_kick=input.args[1], kick_msg=input.group(1), channel=channel)
+        quote = "<-- {nick} has kicked {nick_kick} [{kick_msg}] from {channel}" \
+                .format(nick=nick, nick_kick=input.args[1], kick_msg=input.group(1), channel=channel)
     elif input.event == 'NICK':
        channel = 'ALL'
        nick = input.nick
-       quote = "-- {nick} is now known as {nick_new}".format(nick=nick, nick_new=input.group(1))
+       quote = "-- {nick} is now known as {nick_new}" \
+               .format(nick=nick, nick_new=input.group(1))
     elif len(input.args) > 0 and input.args[0].startswith('#'):
         channel = input.sender
         nick = input.nick
@@ -182,7 +190,8 @@ def logger(phenny, input):
             args = args.replace(',', '')
         else:
             args = args.replace(',', ' ')
-        quote = "-- Mode {channel} [{args}] by {nick}".format(channel=input.sender, args=args, nick=input.nick)
+        quote = "-- Mode {channel} [{args}] by {nick}" \
+                .format(channel=input.sender, args=args, nick=input.nick)
     else:
         return
 
@@ -194,8 +203,6 @@ def logger(phenny, input):
         'quote': quote
     }
 
-    # format action messages
-    
     global queue
     queue.append(sqlite_data)
 
@@ -267,7 +274,7 @@ def insert_into_db(phenny, sqlite_data):
     bash.conn.commit()
 
 bash.conn = None
-bash.rule = (['bash'], r'(.*)')
+bash.rule = (['bash', 'vtbash', 'quote'], r'(.*)')
 logger.event = '*'
 logger.rule = r'(.*)'
 
