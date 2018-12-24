@@ -46,10 +46,14 @@ def create_default_config(fn):
     # leave the api key blank to not use them and be sure to add the 'linx' module to the ignore list.
     linx_api_key = ""
 
+    # bash-enabled features
+    # designed to be used with https://github.com/vtluug/pyqdb
+    bash_api_key = ''
+
     # These are people who will be able to use admin.py's functions...
     admins = [owner, 'someoneyoutrust']
     # But admin.py is disabled by default, as follows:
-    exclude = ['admin', 'linx', 'foodforus']
+    exclude = ['admin', 'linx', 'foodforus', 'bash']
 
     ignore = ['']
 

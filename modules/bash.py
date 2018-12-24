@@ -20,7 +20,7 @@ def setup(self):
 
     if not os.path.exists(self.bash_quotes_path):
         os.makedirs(self.bash_quotes_path)
-    
+
     c = self.bash_conn.cursor()
     c.execute('''create table if not exists quotes (
         id      integer primary key autoincrement,
@@ -42,112 +42,85 @@ def setup(self):
     # Start thread to check for new messages
     Thread(target = insert_into_db_caller, args=(self,)).start()
 
-def bash(phenny, input):
-    """'.bash' - queries a quote selection to add"""
-    usage = "Usage: .bash <nick_1> <# msgs to start at> <nick_2> <# msgs to end at> (Specifies a range of messages)"
-    
-    input_all = input.group(2)
-    if not input_all:
-        phenny.say(usage)
-        return
-   
-    input_args = input_all.split()
-    if len(input_args) < 4:
-        phenny.say(usage)
-        return
-    
-    channel = input.sender
-    nick1 = input_args[0]
-    nick1_start_str = input_args[1]
-    nick2 = input_args[2]
-    nick2_end_str = input_args[3]
+def insert_into_db(phenny, sqlite_data):
+    """inserts message to to temp db"""
 
-    # Check Input Type
-    if not nick1_start_str.isdigit() or not nick2_end_str.isdigit():
-        phenny.say("Error: 2nd & 4th argument must be integers")
-        phenny.say(usage)
-        return
+    if not bash.conn:
+        bash.conn = sqlite3.connect(phenny.bash_db)
 
-    nick1_start = int(nick1_start_str)
-    nick2_end = int(nick2_end_str)
+    c = bash.conn.cursor()
 
-    # Connect to db
-    fn = phenny.nick + '-' + phenny.config.host + '.bash.db'
-    bash_db = os.path.join(os.path.expanduser('~/.phenny'), fn)
-    bash_conn = sqlite3.connect(bash_db)
-    c = bash_conn.cursor()
+    c.execute('''INSERT INTO quotes
+        (channel, nick, quote, time)
+        VALUES(
+            :channel,
+            :nick,
+            :quote,
+            CURRENT_TIMESTAMP
+        );''', sqlite_data)
 
-    # Check input for validity
-    c.execute('''SELECT lines FROM stats WHERE (channel=? OR channel='NULL') AND nick=?''', (channel, nick1))
+    c.execute('''INSERT OR REPLACE INTO stats
+        (channel, nick, lines)
+        VALUES(
+            :channel,
+            :nick,
+            COALESCE((SELECT lines FROM stats WHERE channel=:channel AND nick=:nick) + 1, 1)
+        );''', sqlite_data)
+
+
+    c.close()
+    bash.conn.commit()
+
+    c = bash.conn.cursor()
+
+    c.execute('''SELECT id FROM quotes ORDER BY id DESC LIMIT 1''')
+    last_id = c.fetchall()[0][0] - 99
+
+    c.execute('''SELECT channel, nick FROM quotes WHERE id < ?''', (last_id,))
     rows = c.fetchall()
-    nick1_total = 0
     for row in rows:
-        nick1_total = nick1_total + row[0]
+        channel = row[0]
+        nick = row[1]
 
-    c.execute('''SELECT lines FROM stats WHERE (channel=? OR channel='NULL') AND nick=?''', (channel, nick2))
-    rows = c.fetchall()
-    nick2_total = 0
-    for row in rows:
-        nick2_total = nick2_total + row[0]
+        c.execute('''SELECT lines FROM stats WHERE channel=? AND nick=?''', (channel, nick))
+        lines = 0
+        lines = c.fetchall()[0][0]
 
-    if nick1_total < nick1_start:
-        phenny.say("Error: {} has not done {} actions (EVERYTHING included EXCEPT {} replies)" \
-                .format(nick1, nick1_start, phenny.nick))
-        return
-    
-    if nick2_total < nick2_end:
-        phenny.say("Error: {} has not done {} actions (EVERYTHING included EXCEPT {} replies)" \
-                .format(nick2, nick2_end, phenny.nick))
-        return
+        if lines - 1 == 0:
+            c.execute('''DELETE FROM stats WHERE channel=? AND nick=?''', (channel, nick))
+        else:
+            c.execute('''REPLACE INTO stats
+                (channel, nick, lines)
+                VALUES(
+                    ?,
+                    ?,
+                    (SELECT lines FROM stats WHERE channel=? AND nick=?) - 1
+             );''', (channel, nick, channel, nick))
 
-    # Fetch quote ids
-    c.execute('''SELECT id, channel, nick FROM quotes WHERE (channel=? OR channel='ALL') AND nick=?''', (channel, nick1))
-    rows = c.fetchall()
-    nick1_id = -1
-    for row, i in zip(reversed(rows), range(nick1_start)):
-        if i == nick1_start - 1:
-            nick1_id = row[0]
+        c.execute('''DELETE FROM quotes WHERE id < ?''', (last_id,))
 
-    c.execute('''SELECT id, channel, nick FROM quotes WHERE (channel=? OR channel='ALL') AND nick=?''', (channel, nick2))
-    rows = c.fetchall()
-    nick2_id = -1
-    for row, i in zip(reversed(rows), range(nick2_end)):
-        if i == nick2_end - 1:
-            nick2_id = row[0]
+    c.close()
+    bash.conn.commit()
 
-    if nick2_id < nick1_id:
-        phenny.say("Error, try again. 2nd nick number (Newer) must come after 1st nick number")
-        phenny.say(usage)
-        return
-
-    # Fetch quotes within range of ids
-    c.execute('''SELECT quote FROM quotes WHERE (channel=? OR channel='ALL') AND id >= ? AND id <= ?''', (channel, nick1_id, nick2_id))
-    final_lines = []
-    for line in c.fetchall():
-        final_lines.append(line[0])
-    final_lines = ''.join(final_lines)
-
-
-    quote_json = {
-            'body': final_lines,
-            'tags': ','.join(['bone', nick1, nick2]),
-            'key': "SUPERSECRETAPIKEY"
-            }
-   
-    web.post('https://bash.vtluug.org/quotes', {}, {}, True, json=quote_json)
-
-    phenny.say('Check https://bash.vtluug.org/quotes to see your quote!')
+def insert_into_db_caller(phenny):
+    """Checks for a new quote once a second
+    """
+    while True:
+        global queue
+        if len(queue) > 0:
+            insert_into_db(phenny, queue.pop(0))
+        time.sleep(1)
 
 def logger(phenny, input):
     """logs everyting to specific format, except we only keep last 100 lines
     """
 
     allowed_actions = ['PRIVMSG', 'JOIN', 'QUIT', 'PART', 'NICK', 'KICK', 'MODE']
-    
+
     if input.event not in allowed_actions:
         return
 
-    message=""
+    message=''
     if input.event == 'PRIVMSG':
         channel = input.sender
         nick = input.nick
@@ -176,7 +149,8 @@ def logger(phenny, input):
         channel = input.sender
         nick = input.nick
         quote = "<-- {nick} has kicked {nick_kick} [{kick_msg}] from {channel}" \
-                .format(nick=nick, nick_kick=input.args[1], kick_msg=input.group(1), channel=channel)
+                .format(nick=nick, nick_kick=input.args[1],
+                        kick_msg=input.group(1), channel=channel)
     elif input.event == 'NICK':
        channel = 'ALL'
        nick = input.nick
@@ -206,72 +180,112 @@ def logger(phenny, input):
     global queue
     queue.append(sqlite_data)
 
-def insert_into_db_caller(phenny):
-    while True:
-        global queue
-        if len(queue) > 0:
-            insert_into_db(phenny, queue.pop(0))
-        time.sleep(1)
+def bash(phenny, input):
+    """'.bash' - queries a quote selection to add"""
+    usage = ('Usage: .bash <nick_1> <# msgs to start at> <nick_2>'
+            ' <# msgs to end at> (Specifies a range of messages)')
 
-def insert_into_db(phenny, sqlite_data):
-    """inserts message to to temp db"""
+    input_all = input.group(2)
+    if not input_all:
+        phenny.say(usage)
+        return
 
-    if not bash.conn:
-        bash.conn = sqlite3.connect(phenny.bash_db)
-    
-    c = bash.conn.cursor()
+    input_args = input_all.split()
+    if len(input_args) < 4:
+        phenny.say(usage)
+        return
 
-    c.execute('''insert into quotes
-        (channel, nick, quote, time)
-        values(
-            :channel,
-            :nick,
-            :quote,
-            CURRENT_TIMESTAMP
-        );''', sqlite_data)
+    channel = input.sender
+    nick1 = input_args[0]
+    nick1_start_str = input_args[1]
+    nick2 = input_args[2]
+    nick2_end_str = input_args[3]
 
-    c.execute('''insert or replace into stats
-        (channel, nick, lines)
-        values(
-            :channel,
-            :nick,
-            coalesce((select lines from stats where channel=:channel and nick=:nick) + 1, 1)
-        );''', sqlite_data)
+    # Check Input Type
+    if not nick1_start_str.isdigit() or not nick2_end_str.isdigit():
+        phenny.say('Error: 2nd & 4th argument must be integers')
+        phenny.say(usage)
+        return
 
+    nick1_start = int(nick1_start_str)
+    nick2_end = int(nick2_end_str)
 
-    c.close()
-    bash.conn.commit()
-    
-    c = bash.conn.cursor()
-    
-    c.execute('''select id from quotes order by id desc limit 1''')
-    last_id = c.fetchall()[0][0] - 99
-    
-    c.execute('''select channel, nick from quotes where id < ?''', (last_id,))
+    # Connect to db
+    fn = phenny.nick + '-' + phenny.config.host + '.bash.db'
+    bash_db = os.path.join(os.path.expanduser('~/.phenny'), fn)
+    bash_conn = sqlite3.connect(bash_db)
+    c = bash_conn.cursor()
+
+    # Check input for validity
+    c.execute('''SELECT lines FROM stats
+            WHERE (channel=? OR channel='NULL')
+            AND nick=?''', (channel, nick1))
     rows = c.fetchall()
+    nick1_total = 0
     for row in rows:
-        channel = row[0]
-        nick = row[1]
+        nick1_total = nick1_total + row[0]
 
-        c.execute('''select lines from stats where channel=? and nick=?''', (channel, nick))
-        lines = 0
-        lines = c.fetchall()[0][0]
+    c.execute('''SELECT lines FROM stats
+            WHERE (channel=? OR channel='NULL')
+            AND nick=?''', (channel, nick2))
+    rows = c.fetchall()
+    nick2_total = 0
+    for row in rows:
+        nick2_total = nick2_total + row[0]
 
-        if lines - 1 == 0:
-            c.execute('''delete from stats where channel=? and nick=?''', (channel, nick))
-        else:
-            c.execute('''replace into stats
-                (channel, nick, lines)
-                values(
-                    ?,
-                    ?,
-                    (select lines from stats where channel=? and nick=?) - 1
-             );''', (channel, nick, channel, nick))
+    if nick1_total < nick1_start:
+        phenny.say("Error: {} has not done {} actions ({} replies not included)" \
+                .format(nick1, nick1_start, phenny.nick))
+        return
 
-        c.execute('''delete from quotes where id < ?''', (last_id,))
+    if nick2_total < nick2_end:
+        phenny.say("Error: {} has not done {} actions ({} replies not included)" \
+                .format(nick2, nick2_end, phenny.nick))
+        return
 
-    c.close()
-    bash.conn.commit()
+    # Fetch quote ids
+    c.execute('''SELECT id, channel, nick FROM quotes
+            WHERE (channel=? OR channel='ALL')
+            AND nick=?''', (channel, nick1))
+    rows = c.fetchall()
+    nick1_id = -1
+    for row, i in zip(reversed(rows), range(nick1_start)):
+        if i == nick1_start - 1:
+            nick1_id = row[0]
+
+    c.execute('''SELECT id, channel, nick FROM quotes
+            WHERE (channel=? OR channel='ALL')
+            AND nick=?''', (channel, nick2))
+    rows = c.fetchall()
+    nick2_id = -1
+    for row, i in zip(reversed(rows), range(nick2_end)):
+        if i == nick2_end - 1:
+            nick2_id = row[0]
+
+    if nick2_id < nick1_id:
+        phenny.say('Error, try again. 2nd message must occur after first message.')
+        phenny.say(usage)
+        return
+
+    # Fetch quotes within range of ids
+    c.execute('''SELECT quote FROM quotes
+            WHERE (channel=? OR channel='ALL')
+            AND id >= ? AND id <= ?''', (channel, nick1_id, nick2_id))
+    final_lines = []
+    for line in c.fetchall():
+        final_lines.append(line[0])
+    final_lines = ''.join(final_lines)
+
+
+    quote_json = {
+        'body': final_lines,
+        'tags': ','.join([phenny.nick, nick1, nick2]),
+        'key': phenny.config.bash_api_key
+    }
+
+    web.post('https://bash.vtluug.org/quotes', {}, {}, True, json=quote_json)
+
+    phenny.say('Check https://bash.vtluug.org/quotes to see your quote!')
 
 bash.conn = None
 bash.rule = (['bash', 'vtbash', 'quote'], r'(.*)')
