@@ -9,7 +9,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v1
       with:
-        repository: wuvt/johnny-six
+        repository: wuvt/notecharlie
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         tag_with_ref: true
