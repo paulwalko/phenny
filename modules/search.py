@@ -162,6 +162,18 @@ def duck(phenny, input):
 duck.commands = ['duck', 'ddg']
 duck.example = '.duck football'
 
+def musicbrainz_api(entity_type, query):
+    query = web.quote(query, safe='')
+    uri = "https://musicbrainz.org/ws/2/{}?query=\"{}\"&limit=1&fmt=json".format(entity_type, query)
+    bytes = web.get(uri)
+    json = web.json(bytes)
+
+    if entity_type != 'series':
+        entity_type = entity_type + 's'
+    if entity_type in json and len(json[entity_type]) > 0:
+        return json[entity_type][0]
+    return None
+
 def newton_api(operation, expression):
     expression = web.quote(expression, safe='')
     uri = "https://newton.now.sh/{}/{}".format(operation, expression)
