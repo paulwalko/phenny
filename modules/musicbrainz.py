@@ -61,7 +61,7 @@ def mb(phenny, input):
 
 mb.commands = ["mb", "mbz", "mz"]
 mb.example = ".mz artist Queen"
-mb.example = ".mz release sweet action"
+mb.example = ".mz release The Dark Side Of The Moon"
 
 
 if __name__ == "__main__":

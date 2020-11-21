@@ -26,10 +26,10 @@ class TestMusicBrainz(unittest.TestCase):
         self.phenny.say.assert_called_once_with("Queen, Group (UK rock group) : https://musicbrainz.org/artist/0383dadf-2a4e-4d10-a46a-e9e041da8eb3")
 
     def test_mb_release(self):
-        input = Mock(group=lambda x: "release sweet action")
+        input = Mock(group=lambda x: "release The Dark Side Of The Moon")
         mb(self.phenny, input)
 
-        self.phenny.say.assert_called_once_with("Sweet Action: https://musicbrainz.org/release/9d693464-e81b-4b7f-b998-0fde25cb6fef")
+        self.phenny.say.assert_called_once_with("The Dark Side of the Moon: https://musicbrainz.org/release/90a5f2b9-e3ba-4742-8a35-e68c40f13839")
 
     def test_mb_release_group(self):
         input = Mock(group=lambda x: "release-group hello")
