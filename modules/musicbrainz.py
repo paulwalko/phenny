@@ -10,7 +10,7 @@ from modules.search import musicbrainz_api
 entity_types = {"area", "artist", "event", "genre", "instrument", "label", "place", "recording", "release", "release-group", "series", "work", "url"}
 entity_types_unimplemented = {"genre"}
 
-def mz(phenny, input):
+def mb(phenny, input):
     """MusicBrainz API lookup."""
     if not input.group(2):
         return phenny.reply("Nothing to lookup.")
@@ -59,9 +59,9 @@ def mz(phenny, input):
 
     phenny.say("{}{}{}: https://musicbrainz.org/{}/{}".format(name, type, d, entity_type, result["id"]))
 
-mz.commands = ["mb", "mbz", "mz"]
-mz.example = ".mz artist Queen"
-mz.example = ".mz release sweet action"
+mb.commands = ["mb", "mbz", "mz"]
+mb.example = ".mz artist Queen"
+mb.example = ".mz release sweet action"
 
 
 if __name__ == "__main__":
