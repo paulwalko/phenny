@@ -14,10 +14,10 @@ class TestMusicBrainz(unittest.TestCase):
         self.phenny = MagicMock()
 
     def test_mb_area(self):
-        input = Mock(group=lambda x: "area Blacksburg")
+        input = Mock(group=lambda x: "area Los Angeles")
         mb(self.phenny, input)
 
-        self.phenny.say.assert_called_once_with("Blacksburg, City: https://musicbrainz.org/area/76d1e078-7861-4329-8553-f047b922c4f7")
+        self.phenny.say.assert_called_once_with("Los Angeles, City: https://musicbrainz.org/area/1f40c6e1-47ba-4e35-996f-fe6ee5840e62")
 
     def test_mb_artist(self):
         input = Mock(group=lambda x: "artist Queen")
@@ -29,22 +29,22 @@ class TestMusicBrainz(unittest.TestCase):
         input = Mock(group=lambda x: "release The Dark Side Of The Moon")
         mb(self.phenny, input)
 
-        self.phenny.say.assert_called_once_with("The Dark Side of the Moon: https://musicbrainz.org/release/90a5f2b9-e3ba-4742-8a35-e68c40f13839")
+        self.phenny.say.assert_called_once_with("The Dark Side of the Moon: https://musicbrainz.org/release/69b9086b-de1b-35d7-b805-ad99b052d536")
 
     def test_mb_release_group(self):
-        input = Mock(group=lambda x: "release-group hello")
+        input = Mock(group=lambda x: "release-group 808s & Heartbreak")
         mb(self.phenny, input)
 
-        self.phenny.say.assert_called_once_with("HELLO,HELLO,HELLO, Album: https://musicbrainz.org/release-group/ef20be97-cfb2-42f9-8a66-f650118c02e4")
+        self.phenny.say.assert_called_once_with("808s & Heartbreak, Album: https://musicbrainz.org/release-group/1c1b50ec-828b-3d7c-9b1b-54cb1fe97d55")
 
     def test_mb_work(self):
-        input = Mock(group=lambda x: "work 404")
+        input = Mock(group=lambda x: "work The Girl from Ipanema")
         mb(self.phenny, input)
 
-        self.phenny.say.assert_called_once_with("404, Song: https://musicbrainz.org/work/18a04f67-f105-42a5-9e6a-10bf349e5965")
+        self.phenny.say.assert_called_once_with("The Girl From Ipanema, Song: https://musicbrainz.org/work/69f81329-a815-3ec2-aaee-1f781a1e026d")
 
     def text_mb_recording(self):
-        input = Mock(group=lambda x: "recording basketball")
+        input = Mock(group=lambda x: "recording Never Gonna Give You Up")
         mb(self.phenny, input)
 
-        self.phenny.say.assert_called_once_with("Top recording for \"basketball\": https://musicbrainz.org/recording/b23393e7-3930-4687-b94b-970982d003e6")
+        self.phenny.say.assert_called_once_with("Never Gonna Give You Up: https://musicbrainz.org/recording/df345c38-5951-4c8d-9d84-90727304ec48")
